@@ -100,10 +100,15 @@
         display: none;
         z-index: 9998;
       }
+
+      #not-fetched {
+        display: block;
+      }
     </style>
   </head>
   <body>
     <h2>좌석 현황</h2>
+    <h2 id="not-fetched">서버로 부터 좌석 데이터를 받지 못했습니다</h2>
     <div id="seat-container"></div>
 
     <!-- 예약 확인 모달 (AVAILABLE 좌석용) -->
@@ -132,10 +137,13 @@
       let modalHandled = false;
 
       const container = document.getElementById('seat-container');
+      const notFetched = document.getElementById('not-fetched');
 
       fetch('http://localhost:8080/seat/all')
         .then((res) => res.json())
         .then((data) => {
+          notFetched.style.display = 'none';
+
           data.forEach((seat) => {
             seatMap.set(seat.seatId, seat);
             const section = seat.section;
