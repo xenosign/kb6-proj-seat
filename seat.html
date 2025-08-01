@@ -76,7 +76,6 @@
         color: red;
       }
 
-      /* 정보 모달 스타일 */
       #info-modal {
         position: fixed;
         top: 30%;
@@ -111,7 +110,6 @@
     <h2 id="not-fetched">서버로 부터 좌석 데이터를 받지 못했습니다</h2>
     <div id="seat-container"></div>
 
-    <!-- 예약 확인 모달 (AVAILABLE 좌석용) -->
     <div id="modal-overlay"></div>
     <div id="modal">
       <p id="modal-text">좌석을 예약하시겠습니까?</p>
@@ -120,7 +118,6 @@
       <button onclick="closeModal()">취소</button>
     </div>
 
-    <!-- 상태 정보 모달 (PENDING/RESERVED 좌석용) -->
     <div id="info-modal-overlay"></div>
     <div id="info-modal">
       <p id="info-modal-text"></p>
@@ -191,7 +188,7 @@
                 } else {
                   seatDiv.classList.add('available');
                 }
-                // 모든 좌석에 클릭 이벤트 추가
+
                 seatDiv.onclick = () => selectSeat(seat.seatId);
                 seatDiv.id = 'seat-' + seat.seatId;
                 seatDiv.innerText = seat.seatNumber;
@@ -245,7 +242,6 @@
           return;
         }
 
-        // AVAILABLE 좌석인 경우 예약 진행
         fetch('http://localhost:8080/reservation/pending', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -299,7 +295,6 @@
         document.getElementById('modal-overlay').style.display = 'none';
         clearInterval(countdownInterval);
 
-        // 예약 확정된 경우에는 상태 되돌리지 않음
         if (confirmed) return;
 
         if (selectedSeatId) {
