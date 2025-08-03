@@ -125,8 +125,10 @@
     </div>
 
     <script>
-      const seatMap = new Map(); // seatId -> seat
-      const groupedSeats = {}; // section -> row -> seat[]
+      const SERVER_URL = 'http://localhost:8080';
+
+      const seatMap = new Map();
+      const groupedSeats = {};
       let selectedSeatId = null;
       let countdown = 20;
       let countdownInterval = null;
@@ -136,9 +138,14 @@
       const container = document.getElementById('seat-container');
       const notFetched = document.getElementById('not-fetched');
 
-      fetch('http://localhost:8080/seat/all')
-        .then((res) => res.json())
-        .then((data) => {
+      // 초기 좌석 데이터 로드
+      loadSeats();
+
+      async function loadSeats() {
+        try {
+          const response = await fetch(`${SERVER_URL}/seat/all`);
+          const data = await response.json();
+
           notFetched.style.display = 'none';
 
           data.forEach((seat) => {
@@ -153,8 +160,14 @@
           });
 
           renderGroupedSeats(groupedSeats);
-        });
+        } catch (error) {
+          console.error('좌석 데이터 로드 실패:', error);
+          notFetched.innerText =
+            '좌석 데이터를 불러오는 중 오류가 발생했습니다.';
+        }
+      }
 
+      // 페이지 로드 시 좌석 데이터 로드
       function renderGroupedSeats(grouped) {
         Object.keys(grouped).forEach((section) => {
           const sectionDiv = document.createElement('div');
@@ -218,7 +231,7 @@
         }
       }
 
-      const socket = new SockJS('http://localhost:8080/ws/seats');
+      const socket = new SockJS(`${SERVER_URL}/ws/seats`);
       const stompClient = Stomp.over(socket);
 
       stompClient.connect({}, function () {
@@ -229,7 +242,7 @@
         });
       });
 
-      function selectSeat(seatId) {
+      async function selectSeat(seatId) {
         const seat = seatMap.get(seatId);
 
         if (seat.status === 'RESERVED') {
@@ -242,18 +255,27 @@
           return;
         }
 
-        fetch('http://localhost:8080/reservation/pending', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            seatId: seatId,
-            userId: 123,
-            status: 'PENDING',
-          }),
-        }).then(() => {
-          selectedSeatId = seatId;
-          showModal();
-        });
+        try {
+          const response = await fetch(`${SERVER_URL}/reservation/pending`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              seatId: seatId,
+              userId: 123,
+              status: 'PENDING',
+            }),
+          });
+
+          if (response.ok) {
+            selectedSeatId = seatId;
+            showModal();
+          } else {
+            showInfoModal('좌석 선택 중 오류가 발생했습니다.');
+          }
+        } catch (error) {
+          console.error('좌석 선택 오류:', error);
+          showInfoModal('네트워크 오류가 발생했습니다.');
+        }
       }
 
       function showModal() {
@@ -287,7 +309,7 @@
         document.getElementById('timer').innerText = countdown;
       }
 
-      function closeModal() {
+      async function closeModal() {
         if (modalHandled) return;
         modalHandled = true;
 
@@ -298,48 +320,68 @@
         if (confirmed) return;
 
         if (selectedSeatId) {
-          fetch('http://localhost:8080/reservation/update', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              seatId: selectedSeatId,
-              userId: 123,
-              status: 'AVAILABLE',
-            }),
-          }).then(() => {
-            const seat = seatMap.get(selectedSeatId);
-            if (seat) {
-              seat.status = 'AVAILABLE';
-              updateSeat(seat);
+          try {
+            const response = await fetch(`${SERVER_URL}/reservation/update`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                seatId: selectedSeatId,
+                userId: 123,
+                status: 'AVAILABLE',
+              }),
+            });
+
+            if (response.ok) {
+              const seat = seatMap.get(selectedSeatId);
+              if (seat) {
+                seat.status = 'AVAILABLE';
+                updateSeat(seat);
+              }
+            } else {
+              console.error('좌석 상태 업데이트 실패');
             }
+          } catch (error) {
+            console.error('좌석 상태 업데이트 오류:', error);
+          } finally {
             selectedSeatId = null;
-          });
+          }
         }
       }
 
-      function confirmReservation() {
+      async function confirmReservation() {
         confirmed = true;
         clearInterval(countdownInterval);
         document.getElementById('modal').style.display = 'none';
         document.getElementById('modal-overlay').style.display = 'none';
 
         if (selectedSeatId) {
-          fetch('http://localhost:8080/reservation/reserve', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              seatId: selectedSeatId,
-              status: 'RESERVED',
-              userId: 123,
-            }),
-          }).then(() => {
-            const seat = seatMap.get(selectedSeatId);
-            if (seat) {
-              seat.status = 'RESERVED';
-              updateSeat(seat);
+          try {
+            const response = await fetch(`${SERVER_URL}/reservation/reserve`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                seatId: selectedSeatId,
+                status: 'RESERVED',
+                userId: 123,
+              }),
+            });
+
+            if (response.ok) {
+              const seat = seatMap.get(selectedSeatId);
+              if (seat) {
+                seat.status = 'RESERVED';
+                updateSeat(seat);
+              }
+              showInfoModal('예약이 완료되었습니다.');
+            } else {
+              showInfoModal('예약 중 오류가 발생했습니다.');
             }
+          } catch (error) {
+            console.error('예약 오류:', error);
+            showInfoModal('네트워크 오류가 발생했습니다.');
+          } finally {
             selectedSeatId = null;
-          });
+          }
         }
       }
     </script>
